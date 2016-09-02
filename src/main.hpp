@@ -38,7 +38,17 @@
 #include <malloc.h>
 #include <stdint.h>
 #include <stdarg.h>
+#ifdef LINUX
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#else
 #include <direct.h>
+#endif
+#include <amx/amx.h>
+#include <amx/amx2.h>
+#include <amx/getch.h>
+#include <plugincommon.h>
 
 /*
 	Note:

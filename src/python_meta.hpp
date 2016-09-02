@@ -20,17 +20,24 @@
 
 
 ==============================================================================*/
-
-
+#pragma once
 #define HAVE_ROUND
 #ifdef _DEBUG
 
 	#undef _DEBUG
-	#include <python.h>
+	#ifdef LINUX
+		#include <python2.7/Python.h>
+	#else
+		#include <python.h>
+	#endif	
 	#define _DEBUG 1
 
 #else
 
-	#include <python.h>
+	#ifdef LINUX
+		#include <python2.7/Python.h>
+	#else
+		#include <python.h>
+	#endif	
 
 #endif

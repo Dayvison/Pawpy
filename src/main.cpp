@@ -1,32 +1,23 @@
 /*==============================================================================
-
-
 	Pawpy - Python Utility for Pawn
-
 		Copyright (C) 2016 Barnaby "Southclaw" Keene
-
 		This program is free software: you can redistribute it and/or modify it
 		under the terms of the GNU General Public License as published by the
 		Free Software Foundation, either version 3 of the License, or (at your
 		option) any later version.
-
 		This program is distributed in the hope that it will be useful, but
 		WITHOUT ANY WARRANTY; without even the implied warranty of
 		MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 		See the GNU General Public License for more details.
-
 		You should have received a copy of the GNU General Public License along
 		with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 	Note:
 		This is the main source code file which handles all the communication
 		with the SA:MP server and AMX instances. Pretty standard in all SA:MP
 		plugins.
-
-
 ==============================================================================*/
 
-
+//#define _DEBUG 1
 // globals
 #include "main.hpp"
 #include "python_meta.hpp"
@@ -37,7 +28,7 @@
 using std::set;
 
 // sdk related
-#include <sdk.hpp>
+#include "sdk.hpp"
 
 // project related
 #include "natives.hpp"
@@ -45,9 +36,7 @@ using std::set;
 
 
 /*==============================================================================
-
 	Load/Unload and AMX management
-
 ==============================================================================*/
 
 
@@ -77,11 +66,10 @@ PLUGIN_EXPORT bool PLUGIN_CALL Load(void **ppData)
 		to release the interpreter lock since this thread isn't actually doing
 		any Python work, it will be delegated to worker threads later.
 	*/
-	Py_SetProgramName(L"Pawpy");
+	Py_SetProgramName((char*)"Pawpy");
 	Py_Initialize();
 	PyEval_InitThreads();
 	PyEval_SaveThread();
-
 	samp_printf("\n");
 	samp_printf("Pawpy - Python utility for Pawn by Southclaw");
 	samp_printf("\n");
@@ -123,7 +111,11 @@ void samp_printf(const char* message, ...)
 	va_list args;
 	va_start(args, message);
 
+	#ifdef LINUX
+	vsnprintf(result, len, message, args);
+	#else
 	vsprintf_s(result, len, message, args);
+	#endif
 	logprintf(result);
 
 	va_end(args);
@@ -142,7 +134,6 @@ void samp_pyerr()
 	char* ctype = nullptr;
 	char* cvalue = nullptr;
 	char* ctrace = nullptr;
-
 	PyErr_Fetch(&type, &value, &trace);
 
 	if(type != nullptr)
@@ -152,7 +143,13 @@ void samp_pyerr()
 		if(result != nullptr)
 		{
 			ctype = PyBytes_AS_STRING(result);
+			samp_printf(ctype);
+			#ifdef LINUX
+			ctype = strdup(ctype);
+			samp_printf(ctype);
+			#else
 			ctype = _strdup(ctype);
+			#endif
 			Py_DECREF(result);
 		}
 	}
@@ -164,7 +161,11 @@ void samp_pyerr()
 		if(result != nullptr)
 		{
 			cvalue = PyBytes_AS_STRING(result);
+			#ifdef LINUX
+			cvalue = strdup(cvalue);
+			#else
 			cvalue = _strdup(cvalue);
+			#endif
 			Py_DECREF(result);
 		}
 	}
@@ -176,7 +177,11 @@ void samp_pyerr()
 		if(result != nullptr)
 		{
 			ctrace = PyBytes_AS_STRING(result);
+			#ifdef LINUX
+			ctrace = strdup(ctrace);
+			#else
 			ctrace = _strdup(ctrace);
+			#endif
 			Py_DECREF(result);
 		}
 	}
@@ -192,9 +197,7 @@ void samp_pyerr()
 
 
 /*==============================================================================
-
 	Export stuff
-
 	Note:
 	I separated this from the above code because it's largely untouched once the
 	plugin project framework is set up. This area just does the uninteresting
@@ -205,7 +208,6 @@ void samp_pyerr()
 	believe is 17 AMX instances: 1 gamemode and 16 filterscripts. Plugins need
 	to know about filterscripts as well as the main gamemode since all AMX
 	instances might want to interact with a plugin.
-
 ==============================================================================*/
 
 
@@ -236,7 +238,6 @@ PLUGIN_EXPORT int PLUGIN_CALL AmxUnload(AMX *amx)
 	usage of AMX functions to talk *back* to AMX instances. Without this, the
 	plugin could be called into but never send information back to AMX other
 	than a single cell via a function return.
-
 	The important one here is PROCESS_TICK, this tells the SA:MP server that it
 	should call the ProcessTick function in this plugin. If we weren't using
 	ProcessTick, this could be disabled to save a tiny bit of time while running

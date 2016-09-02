@@ -56,7 +56,6 @@ using std::vector;
 cell Native::RunPython(AMX* amx, cell* params)
 {
 	debug("Native::RunPython called");
-
 	string
 		module,
 		function,
@@ -71,7 +70,6 @@ cell Native::RunPython(AMX* amx, cell* params)
 	string result = Pawpy::run_python(Pawpy::prepare(module, function, callback, arguments));
 
 	// todo: return result back to samp somehow
-
 	return 1;
 }
 
@@ -90,10 +88,8 @@ cell Native::RunPythonThreaded(AMX* amx, cell* params)
 	function = amx_GetCppString(amx, params[2]);
 	callback = amx_GetCppString(amx, params[3]);
 	debug("RunPythonThreaded: optained parameters");
-
 	Pawpy::run_python_threaded(Pawpy::prepare(module, function, callback, arguments));
 	debug("RunPythonThreaded: finished");
-
 	return 0;
 }
 
@@ -110,13 +106,11 @@ vector<string> Native::extract_params(AMX* amx, cell* params, uint8_t base_arg_c
 	float arg_value_float;
 	cell *addr_ptr_arr = nullptr;
 	string array_string;
-
 	if(argformat.length() != numargs - base_arg_count)
 	{
 		samp_printf("ERROR: Argument length (%d) does not match format specifier count (%d).", numargs - base_arg_count, argformat.length());
 		return arguments;
 	}
-
 	for(char c : argformat)
 	{
 		switch(c)
@@ -182,6 +176,5 @@ vector<string> Native::extract_params(AMX* amx, cell* params, uint8_t base_arg_c
 			samp_printf("ERROR: Invalid format specifier: '%c' in RunPython", c);
 		}
 	}
-
 	return arguments;
 }

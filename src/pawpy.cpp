@@ -43,7 +43,7 @@ using std::mutex;
 #include "python_meta.hpp"
 
 #include "pawpy.hpp"
-#include <sdk.hpp>
+#include "sdk.hpp"
 
 
 /*
@@ -109,7 +109,6 @@ int Pawpy::run_python_threaded(pycall_t call)
 	t->detach();
 
 	delete t;
-
 	return 0;
 }
 
@@ -122,10 +121,11 @@ int Pawpy::run_python_threaded(pycall_t call)
 */
 void Pawpy::python_thread(pycall_t pycall)
 {
+	string return_ = " ";
 	debug("run_call_thread: %s, %s, %s", pycall.module.c_str(), pycall.function.c_str(), pycall.callback.c_str());
 
-	pycall.returns = run_python(pycall);
-
+	return_ = run_python(pycall);
+	pycall.returns = return_;
 	std::lock_guard<std::mutex> lock(call_stack_mutex);
 	call_stack.push(pycall);
 }
@@ -150,7 +150,7 @@ string Pawpy::run_python(pycall_t pycall)
 	{
         samp_pyerr();
         samp_printf("ERROR: Failed to convert module name to PyUnicode object.");
-		return 0;
+		return "";
 	}
 
 	/*
@@ -164,8 +164,11 @@ string Pawpy::run_python(pycall_t pycall)
 		in some way but I'll leave that up to users to decide.
 	*/
 	char* cwd;
-
+#ifdef LINUX
+	cwd = getcwd(NULL, 0);
+#else
 	cwd = _getcwd(NULL, 0);
+#endif
 
 	PyObject* sysPath = PySys_GetObject((char*)"path");
 	PyObject* programName = PyUnicode_FromString(cwd);
@@ -184,9 +187,8 @@ string Pawpy::run_python(pycall_t pycall)
 	{
         samp_pyerr();
         samp_printf("ERROR: Failed to load module: '%s'", pycall.module.c_str());
-        return 0;
+        return "";
     }
-
 	Py_DECREF(name_ptr);
 	debug("run_call: imported module '%s'", pycall.module.c_str());
 
@@ -200,12 +202,11 @@ string Pawpy::run_python(pycall_t pycall)
 	{
         samp_pyerr();
         samp_printf("ERROR: Module has no attribute: '%s'", pycall.function.c_str());
-        return 0;
+        return "";
 	}
 
 	Py_DECREF(name_ptr);
 	debug("run_call: scanned for attribute '%s'", pycall.function.c_str());
-
 	/*
 		Note:
 		Loads the function specified in pycall into a PyObject ready to call.
@@ -218,7 +219,7 @@ string Pawpy::run_python(pycall_t pycall)
 	{
         samp_pyerr();
         samp_printf("ERROR: Failed to convert function name to function object: '%s'", pycall.function.c_str());
-        return 0;
+        return "";
 	}
 
 	/*
@@ -231,9 +232,8 @@ string Pawpy::run_python(pycall_t pycall)
 	{
         samp_pyerr();
         samp_printf("ERROR: Function not found or is not callable: '%s'", pycall.function.c_str());
-        return 0;
+        return "";
 	}
-
 	debug("run_call: checked for function existence and callability '%s'", pycall.function.c_str());
 
 	/*
@@ -246,7 +246,7 @@ string Pawpy::run_python(pycall_t pycall)
 	{
         samp_pyerr();
         samp_printf("ERROR: Failed to create new PyTuple object.");
-        return 0;
+        return "";
 	}
 
 	PyObject* arg_string_ptr;
@@ -256,7 +256,6 @@ string Pawpy::run_python(pycall_t pycall)
 		arg_string_ptr = PyUnicode_FromString(pycall.arguments[i].c_str());
 		PyTuple_SET_ITEM(args_ptr, i, arg_string_ptr);
 	}
-
 	debug("run_call: created argument tuple");
 
 	/*
@@ -274,14 +273,13 @@ string Pawpy::run_python(pycall_t pycall)
 	*/
 	PyObject* result_ptr = PyObject_CallObject(func_ptr, args_ptr);
 	Py_DECREF(args_ptr);
-
 	debug("run_call: finished running Python module");
 
 	if(result_ptr == nullptr)
 	{
 		samp_pyerr();
 		samp_printf("ERROR: Python function call result is null.");
-        return 0;
+        return "";
 	}
 
 	/*
@@ -295,10 +293,10 @@ string Pawpy::run_python(pycall_t pycall)
 	{
 		samp_pyerr();
 		samp_printf("ERROR: Python function call result is not a string.");
-        return 0;
+        return "";
 	}
-
 	char* result_str_char;// = PyByteArray_AsString(result_str_ptr);
+
 	Py_ssize_t result_str_len;
 	PyBytes_AsStringAndSize(result_str_ptr, &result_str_char, &result_str_len);
 	Py_DECREF(result_str_ptr);
@@ -307,14 +305,12 @@ string Pawpy::run_python(pycall_t pycall)
 	{
 		samp_pyerr();
 		samp_printf("ERROR: result_str_char is null.");
-        return 0;
+        return "";
 	}
-
 	debug("run_call: optained module result value '%s' and returning", result_str_char);
 
 	PyGILState_Release(gstate);
 	debug("run_call: released GIL state");
-
 	return string(result_str_char);
 }
 
@@ -331,7 +327,6 @@ void Pawpy::amx_tick(AMX* amx)
 {
 	if(call_stack.empty())
 		return;
-
 	Pawpy::pycall_t call;
 	int error = 0;
 	int amx_idx = -1;
